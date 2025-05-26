@@ -1,0 +1,593 @@
+React-app/
+├── Componets/
+│   ├── FormBuilder.js
+│
+├── data/
+│   ├── FormSubmission.js
+│   
+├── forms/
+│   ├── FormList.js
+│   
+├── services/
+│   ├── api.js
+│
+├── App.css
+│
+├── App.js
+│
+├── index.css
+│
+├── index.js
+│
+├── App.test.js
+
+
+============================================================================================================
+1. Setup 
+
+npx create-react-app name-app
+
+npm i react-router-dom axios react react-dom react-scripts web-vitals
+============================================================================================================
+2. FormBuilder.js
+
+import React, { useState } from "react";
+import { createFormTemplate } from "../services/api";
+
+const FormBuilder = () => {
+  const [formName, setFormName] = useState("");
+  const [fields, setFields] = useState([]);
+  const [newField, setNewField] = useState({
+    fieldName: "",
+    fieldType: "text",
+    required: false,
+    options: "",
+  });
+
+  const handleAddField = () => {
+    const fieldToAdd = {
+      ...newField,
+      options: newField.options.split(",").map((opt) => opt.trim()),
+    };
+    setFields([...fields, fieldToAdd]);
+    setNewField({
+      fieldName: "",
+      fieldType: "text",
+      required: false,
+      options: "",
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const formData = { formName, fields };
+      const createdForm = await createFormTemplate(formData);
+      alert(`Form "${createdForm.formName}" created successfully!`);
+      setFormName("");
+      setFields([]);
+    } catch (error) {
+      alert("Error creating form template");
+    }
+  };
+
+  return (
+    <div className="form-builder">
+      <h2>Create New Form Template</h2>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>Form Name:</label>
+          <input
+            type="text"
+            value={formName}
+            onChange={(e) => setFormName(e.target.value)}
+            required
+          />
+        </div>
+
+        <h3>Fields</h3>
+        <div>
+          <label>Field Name:</label>
+          <input
+            type="text"
+            value={newField.fieldName}
+            onChange={(e) =>
+              setNewField({ ...newField, fieldName: e.target.value })
+            }
+          />
+        </div>
+        <div>
+          <label>Field Type:</label>
+          <select
+            value={newField.fieldType}
+            onChange={(e) =>
+              setNewField({ ...newField, fieldType: e.target.value })
+            }
+          >
+            <option value="text">Text</option>
+            <option value="number">Number</option>
+            <option value="email">Email</option>
+            <option value="date">Date</option>
+            <option value="select">Select</option>
+            <option value="checkbox">Checkbox</option>
+            <option value="radio">Radio</option>
+            <option value="textarea">Textarea</option>
+          </select>
+        </div>
+        <div>
+          <label>
+            Required:
+            <input
+              type="checkbox"
+              checked={newField.required}
+              onChange={(e) =>
+                setNewField({ ...newField, required: e.target.checked })
+              }
+            />
+          </label>
+        </div>
+        {["select", "checkbox", "radio"].includes(newField.fieldType) && (
+          <div>
+            <label>Options (comma separated):</label>
+            <input
+              type="text"
+              value={newField.options}
+              onChange={(e) =>
+                setNewField({ ...newField, options: e.target.value })
+              }
+            />
+          </div>
+        )}
+        <button type="button" onClick={handleAddField}>
+          Add Field
+        </button>
+
+        <h4>Current Fields</h4>
+        <ul>
+          {fields.map((field, index) => (
+            <li key={index}>
+              {field.fieldName} ({field.fieldType}){" "}
+              {field.required ? "*required" : ""}
+              {field.options && ` Options: ${field.options.join(", ")}`}
+            </li>
+          ))}
+        </ul>
+
+        <button type="submit">Create Form Template</button>
+      </form>
+    </div>
+  );
+};
+
+export default FormBuilder;
+
+
+============================================================================================================
+3. FormSubmission.js
+
+import React, { useState, useEffect } from "react";
+import { getFormTemplateById, submitForm } from "../services/api";
+import { useParams } from "react-router-dom";
+
+const FormSubmission = () => {
+  const { formId } = useParams();
+  const [formTemplate, setFormTemplate] = useState(null);
+  const [formData, setFormData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    const fetchFormTemplate = async () => {
+      try {
+        const data = await getFormTemplateById(formId);
+        setFormTemplate(data);
+
+        // Initialize form data with empty values
+        const initialData = {};
+        data.fields.forEach((field) => {
+          initialData[field.fieldName] = "";
+        });
+        setFormData(initialData);
+
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching form template:", error);
+        setLoading(false);
+      }
+    };
+    fetchFormTemplate();
+  }, [formId]);
+
+  const handleChange = (fieldName, value) => {
+    setFormData({
+      ...formData,
+      [fieldName]: value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await submitForm(formId, formData);
+      setSubmitted(true);
+    } catch (error) {
+      alert("Error submitting form");
+    }
+  };
+
+  if (loading) return <div>Loading form...</div>;
+  if (!formTemplate) return <div>Form not found</div>;
+
+  if (submitted) {
+    return (
+      <div className="form-submitted">
+        <h2>Thank You!</h2>
+        <p>Your form has been submitted successfully.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="form-submission">
+      <h2>{formTemplate.formName}</h2>
+      <form onSubmit={handleSubmit}>
+        {formTemplate.fields.map((field, index) => (
+          <div key={index} className="form-field">
+            <label>
+              {field.fieldName}
+              {field.required && <span className="required">*</span>}
+            </label>
+
+            {field.fieldType === "text" && (
+              <input
+                type="text"
+                value={formData[field.fieldName] || ""}
+                onChange={(e) => handleChange(field.fieldName, e.target.value)}
+                required={field.required}
+              />
+            )}
+
+            {field.fieldType === "email" && (
+              <input
+                type="email"
+                value={formData[field.fieldName] || ""}
+                onChange={(e) => handleChange(field.fieldName, e.target.value)}
+                required={field.required}
+              />
+            )}
+
+            {field.fieldType === "number" && (
+              <input
+                type="number"
+                value={formData[field.fieldName] || ""}
+                onChange={(e) => handleChange(field.fieldName, e.target.value)}
+                required={field.required}
+              />
+            )}
+
+            {field.fieldType === "textarea" && (
+              <textarea
+                value={formData[field.fieldName] || ""}
+                onChange={(e) => handleChange(field.fieldName, e.target.value)}
+                required={field.required}
+              />
+            )}
+
+            {field.fieldType === "select" && (
+              <select
+                value={formData[field.fieldName] || ""}
+                onChange={(e) => handleChange(field.fieldName, e.target.value)}
+                required={field.required}
+              >
+                <option value="">Select an option</option>
+                {field.options.map((option, i) => (
+                  <option key={i} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {field.fieldType === "radio" && (
+              <div className="radio-options">
+                {field.options.map((option, i) => (
+                  <div key={i}>
+                    <input
+                      type="radio"
+                      id={`${field.fieldName}-${i}`}
+                      name={field.fieldName}
+                      value={option}
+                      checked={formData[field.fieldName] === option}
+                      onChange={() => handleChange(field.fieldName, option)}
+                      required={field.required}
+                    />
+                    <label htmlFor={`${field.fieldName}-${i}`}>{option}</label>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {field.fieldType === "checkbox" && (
+              <div className="checkbox-options">
+                {field.options.map((option, i) => (
+                  <div key={i}>
+                    <input
+                      type="checkbox"
+                      id={`${field.fieldName}-${i}`}
+                      value={option}
+                      checked={
+                        formData[field.fieldName]?.includes(option) || false
+                      }
+                      onChange={(e) => {
+                        const currentValues = formData[field.fieldName] || [];
+                        const newValues = e.target.checked
+                          ? [...currentValues, option]
+                          : currentValues.filter((val) => val !== option);
+                        handleChange(field.fieldName, newValues);
+                      }}
+                    />
+                    <label htmlFor={`${field.fieldName}-${i}`}>{option}</label>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        <button type="submit">Submit Form</button>
+      </form>
+    </div>
+  );
+};
+
+export default FormSubmission;
+
+
+============================================================================================================
+4 FormList.js
+
+import React, { useEffect, useState } from "react";
+import { getFormTemplates } from "../services/api";
+import { Link } from "react-router-dom";
+
+const FormList = () => {
+  const [forms, setForms] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchForms = async () => {
+      try {
+        const data = await getFormTemplates();
+        setForms(data);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching forms:", error);
+        setLoading(false);
+      }
+    };
+    fetchForms();
+  }, []);
+
+  if (loading) return <div>Loading forms...</div>;
+
+  return (
+    <div className="form-list">
+      <h2>Available Forms</h2>
+      <ul>
+        {forms.map((form) => (
+          <li key={form._id}>
+            <Link to={`/form/${form._id}`}>{form.formName}</Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default FormList;
+
+============================================================================================================
+5 api.js
+
+import axios from "axios";
+
+const API_BASE_URL = "http://localhost:5000/api/forms";
+
+export const createFormTemplate = async (formData) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/templates`, formData);
+    return response.data;
+  } catch (error) {
+    console.error("Error creating form template:", error);
+    throw error;
+  }
+};
+
+export const getFormTemplates = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/templates`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching form templates:", error);
+    throw error;
+  }
+};
+
+export const getFormTemplateById = async (id) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/templates/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching form template:", error);
+    throw error;
+  }
+};
+
+export const submitForm = async (formId, formData) => {
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/submit/${formId}`,
+      formData
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error submitting form:", error);
+    throw error;
+  }
+};
+
+export const getFormSubmissions = async (formId) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/submissions/${formId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching form submissions:", error);
+    throw error;
+  }
+};
+
+============================================================================================================
+6. App.css
+
+.App {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.form-builder, .form-list, .form-submission {
+  background: #f5f5f5;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.form-field {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="number"],
+textarea,
+select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.required {
+  color: red;
+}
+
+button {
+  background: #4CAF50;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+button:hover {
+  background: #45a049;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  margin-bottom: 10px;
+}
+
+a {
+  color: #333;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+============================================================================================================
+8. App.js
+
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import "./App.css";
+import FormSubmission from "./data/FormSubmission";
+import FormList from "./forms/FormList";
+import FormBuilder from "./Components/FormBuilder";
+
+function App() {
+  return (
+    <Router>
+      <div className="App">
+        <header>
+          <h1>Form Management System</h1>
+        </header>
+        <main>
+          <Routes>
+            <Route path="/" element={<FormList />} />
+            <Route path="/create-form" element={<FormBuilder />} />
+            <Route path="/form/:formId" element={<FormSubmission />} />
+          </Routes>
+        </main>
+      </div>
+    </Router>
+  );
+}
+
+export default App;
+
+============================================================================================================
+9. index.css
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+
+============================================================================================================
+10. index.js
+
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import App from './App';
+import reportWebVitals from './reportWebVitals';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+reportWebVitals();
+
+============================================================================================================
+11. Start your React application:
+npm start
+
+============================================================================================================

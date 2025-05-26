@@ -1,0 +1,247 @@
+fullstack-app/
+├── models/
+│   ├── form.js
+│   
+├── routes/
+│   ├── formRoutes.js
+├── server.js/
+├── package.json
+└── ...
+
+============================================================================================================
+1. Setup 
+npm init
+npm i body-parser cors express mongoose nodemon
+
+pakage.js 
+"scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+
+============================================================================================================
+2. routes => formRoutes.js
+
+const express = require("express");
+const Form = require("../models/form");
+const router = express.Router();
+
+// Create a new form template
+router.post("/templates", async (req, res) => {
+  try {
+    const form = new Form({
+      formName: req.body.formName,
+      fields: req.body.fields,
+    });
+    await form.save();
+    res.status(201).json(form);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Get all form templates
+router.get("/templates", async (req, res) => {
+  try {
+    const forms = await Form.find();
+    res.json(forms);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get a specific form template
+router.get("/templates/:id", async (req, res) => {
+  try {
+    const form = await Form.findById(req.params.id);
+    if (!form) return res.status(404).json({ error: "Form not found" });
+    res.json(form);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Submit form data
+router.post("/submit/:formId", async (req, res) => {
+  try {
+    const form = await Form.findById(req.params.formId);
+    if (!form) return res.status(404).json({ error: "Form not found" });
+
+    form.submissions.push({
+      data: req.body,
+      submittedBy: req.body.userId, // Optional: if you have user authentication
+    });
+
+    await form.save();
+    res.status(201).json({ message: "Form submitted successfully" });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Get all submissions for a form
+router.get("/submissions/:formId", async (req, res) => {
+  try {
+    const form = await Form.findById(req.params.formId);
+    if (!form) return res.status(404).json({ error: "Form not found" });
+    res.json(form.submissions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update a form template
+router.put("/templates/:id", async (req, res) => {
+  try {
+    const updatedForm = await Form.findByIdAndUpdate(
+      req.params.id,
+      {
+        formName: req.body.formName,
+        fields: req.body.fields,
+        updatedAt: Date.now(),
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedForm) {
+      return res.status(404).json({ error: "Form not found" });
+    }
+
+    res.json(updatedForm);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Delete a form template
+router.delete("/templates/:id", async (req, res) => {
+  try {
+    const deletedForm = await Form.findByIdAndDelete(req.params.id);
+
+    if (!deletedForm) {
+      return res.status(404).json({ error: "Form not found" });
+    }
+
+    res.json({ message: "Form deleted successfully", form: deletedForm });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
+
+============================================================================================================
+3. models => form.js
+
+const mongoose = require("mongoose");
+
+const formSchema = new mongoose.Schema({
+  formName: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  fields: [
+    {
+      fieldName: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+      fieldType: {
+        type: String,
+        required: true,
+        enum: [
+          "text",
+          "number",
+          "email",
+          "date",
+          "select",
+          "checkbox",
+          "radio",
+          "textarea",
+        ],
+        default: "text",
+      },
+      required: {
+        type: Boolean,
+        default: false,
+      },
+      options: [String], // Only used for select, radio, checkbox types
+    },
+  ],
+  submissions: [
+    {
+      data: mongoose.Schema.Types.Mixed, // Flexible structure to store submission data
+      submittedAt: {
+        type: Date,
+        default: Date.now,
+      },
+      submittedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", // Reference to user if you have authentication
+      },
+    },
+  ],
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+// Update the updatedAt field before saving
+formSchema.pre("save", function (next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+module.exports = mongoose.model("form", formSchema);
+
+============================================================================================================
+4 npm start server
+
+============================================================================================================
+5 Test Api
+
+Post => http://localhost:5000/api/forms/templates
+Get => http://localhost:5000/api/forms/templates/ID
+GetAll => http://localhost:5000/api/forms/templates
+put => http://localhost:5000/api/forms/templates/ID
+============================================================================================================
+6 Form Json Formate
+
+{
+  "formName": "ABC ",
+  "fields": [
+    {
+      "fieldName": "ABC 1",
+      "fieldType": "text",
+      "required": true
+    },
+    {
+      "fieldName": "abc@gmail.com",
+      "fieldType": "email",
+      "required": true
+    },
+    {
+      "fieldName": "ABC Working done....",
+      "fieldType": "textarea",
+      "required": true
+    },
+    {
+      "fieldName": "+910000000000",
+      "fieldType": "radio",
+      "required": false,
+      "options": ["Email", "Phone", "Text"]
+    }
+  ]
+}
+
+============================================================================================================
+7 
+
+============================================================================================================
