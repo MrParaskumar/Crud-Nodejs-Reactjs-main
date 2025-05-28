@@ -202,17 +202,47 @@ formSchema.pre("save", function (next) {
 module.exports = mongoose.model("form", formSchema);
 
 ============================================================================================================
-4 npm start server
+4 server.js
+
+const express = require("express");
+const mongoose = require("mongoose");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const formRoutes = require("./routes/formRoutes");
+
+const app = express();
+const PORT = 5000;
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+
+// MongoDB Connection
+mongoose
+    .connect("mongodb://localhost:27017/NodejscrudDB", {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+    })
+    .then(() => console.log("MongoDB connected"))
+    .catch((err) => console.log(err));
+
+// Routes
+app.use("/api/forms", formRoutes);
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 ============================================================================================================
-5 Test Api
+5 npm start server & node server.js
+
+============================================================================================================
+6 Test Api
 
 Post => http://localhost:5000/api/forms/templates
 Get => http://localhost:5000/api/forms/templates/ID
 GetAll => http://localhost:5000/api/forms/templates
 put => http://localhost:5000/api/forms/templates/ID
 ============================================================================================================
-6 Form Json Formate
+7 Form Json Formate
 
 {
   "formName": "ABC ",
@@ -242,6 +272,43 @@ put => http://localhost:5000/api/forms/templates/ID
 }
 
 ============================================================================================================
-7 
+8 post data (post)http://localhost:5000/api/forms/templates
+
+{
+  "formName": "ABC ",
+  "fields": [
+    {
+      "fieldName": "ABC 1",
+      "fieldType": "text",
+      "required": true
+    },
+    {
+      "fieldName": "abc@gmail.com",
+      "fieldType": "email",
+      "required": true
+    },
+    {
+      "fieldName": "ABC Working done....",
+      "fieldType": "textarea",
+      "required": true
+    },
+    {
+      "fieldName": "+911234567890",
+      "fieldType": "radio",
+      "required": false,
+      "options": ["Email", "Phone", "Text"]
+    }
+  ]
+}
+
+
+============================================================================================================
+9 Get id data => (get)http://localhost:5000/api/forms/templates/ID
+
+============================================================================================================
+10 GetAll => (get)http://localhost:5000/api/forms/templates
+
+============================================================================================================
+11 put data => (post)http://localhost:5000/api/forms/templates/ID
 
 ============================================================================================================
